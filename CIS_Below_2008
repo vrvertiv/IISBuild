@@ -1,0 +1,125 @@
+function IISBuild {
+    
+    Install-WindowsFeature NET-Framework-Features,NET-Framework-45-Features,NET-WCF-Services45 #Enable .Net Features
+    Install-WindowsFeature Web-Server,Web-Health,Web-Performance, Web-Security, Web-App-Dev,Web-Mgmt-Tools #Installs Web Server and its core components
+    Install-WindowsFeature Web-Http-Redirect #Installs the required Component
+    Install-WindowsFeature Web-Custom-Logging,Web-Request-Monitor,Web-Http-Tracing #Installs the required Component
+    Install-WindowsFeature Web-Dyn-Compression #Installs the required Component
+    Install-WindowsFeature Web-Basic-Auth, Web-Digest-Auth,Web-IP-Security,Web-Url-Auth,Web-Windows-Auth #Installs the required Component
+    Install-WindowsFeature Web-Net-Ext,Web-Net-Ext45,Web-ASP,Web-ASP-Net45,Web-CGI,Web-ISAPI-Ext,Web-ISAPI-Filter #Installs the required Component
+    Import-Module WebAdministration
+    Get-Website #list all the websites
+    Get-ChildItem -Path 'IIS:\Sites' #list all the child websites
+    Remove-Website -Name "Default Web Site"
+    New-Item -Path "IIS:\Sites" -Name "vertiv" -Type Site -Bindings @{protocol="http"; bindingInformation="*:8080:"} #Create new site names stalin and bind with http and 8080 port
+    Set-ItemProperty -Path "IIS:\Sites\vertiv" -name "physicalPath" -value "E:\Sites\Vertiv" #changing the path to E Drive
+    #Log
+    $settings = @{ #Array for the list of bindings
+        logFormat = "W3c"; # Formats:   W3c, Iis, Ncsa, Custom
+        enabled   = $true
+        directory = "E:\Sites\Logs"
+        period    = "Daily"
+    }
+    Set-ItemProperty "IIS:\Sites\stalin" -name "logFile" -value $settings #Set the varible with the binding parameters
+    #Log
+    #SelfSigningCertificates
+    New-SelfSignedCertificate -dnsname "stalin.vertivco.com" -KeyLength 2048 -CertStoreLocation cert:\LocalMachine\My -NotAfter (Get-Date).AddYears(2)
+    New-WebBinding -Name "Default Web Site" -IP "*" -Port 443 -Protocol https
+    #SelfSigningCertificates
+
+    #ApplicationPool
+    New-WebAppPool -Name Vertiv #Creates New Application Pool
+    #ApplicationPool
+
+    #.NETTrustLevel
+    $Env:Path += ";C:\Windows\System32\inetsrv\" #IF Appcmd is not recognized
+    appcmd set config /commit:WEBROOT /section:trust /level:Minimal
+    #.NETTrustLevel
+
+    #DeploymentRetailMode
+    Set-DeploymentRetailMode -Retail False
+    #DeploymentRetailMode
+
+    #Diablinghigh-bit ASCII characters
+    appcmd set config /section:requestfiltering /allowHighBitCharacters:false
+    #Diablinghigh-bit ASCII characters
+
+    #DisableUnlistedFileExtentions
+    appcmd set config /section:requestfiltering /fileExtensions.allowunlisted:false
+    #DisableUnlistedFileExtentions
+
+    #EnableTLS_1.2
+    #Before disabling anything enable TLS 1.2
+    New-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server' -Force 
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server' -name 'Enabled' -value '1' -PropertyType 'DWord' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server' -name 'DisabledByDefault' -value 0 -PropertyType 'DWord' -Force    
+    New-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Client' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Client' -name 'Enabled' -value '1' -PropertyType 'DWord' -Force  
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Client' -name 'DisabledByDefault' -value 0 -PropertyType 'DWord' -Force
+    #EnableTLS_1.2
+
+    #DisablingSSLv2.0andSSLv3.0i
+    #SSL 2.0 is normally disabled by default on modern versions of Windows.
+    New-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Server' -Force 
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Server' -name 'Enabled' -value '0' -PropertyType 'DWord' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Server' -name 'DisabledByDefault' -value 1 -PropertyType 'DWord' -Force 
+    New-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Client' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Client' -name 'Enabled' -value '0' -PropertyType 'DWord' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Client' -name 'DisabledByDefault' -value 1 -PropertyType 'DWord' -Force
+    New-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Server' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Server' -name 'Enabled' -value '0' -PropertyType 'DWord' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Server' -name 'DisabledByDefault' -value 1 -PropertyType 'DWord' -Force 
+    New-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Client' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Client' -name 'Enabled' -value '0' -PropertyType 'DWord' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Client' -name 'DisabledByDefault' -value 1 -PropertyType 'DWord' -Force
+    #DisablingSSLv2.0andSSLv3.0
+
+    #DisablingTLS1.0
+    #Depending on your setup this may impact production, test it first!
+    New-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server' -Force 
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server' -name 'Enabled' -value '0' -PropertyType 'DWord' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server' -name 'DisabledByDefault' -value 1 -PropertyType 'DWord' -Force
+    New-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client' -name 'Enabled' -value '0' -PropertyType 'DWord' -Force 
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client' -name 'DisabledByDefault' -value 1 -PropertyType 'DWord' -Force
+    #DisablingTLS1.0
+
+    #DisablingTLS1.1
+    New-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server' -name 'Enabled' -value '0' -PropertyType 'DWord' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server' -name 'DisabledByDefault' -value 1 -PropertyType 'DWord' -Force 
+    New-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Client' -Force 
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Client' -name 'Enabled' -value '0' -PropertyType 'DWord' -Force
+    New-ItemProperty -path 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Client' -name 'DisabledByDefault' -value 1 -PropertyType 'DWord' -Force 
+    #DisablingTLS1.1
+
+    #DisableCiphers
+    Disable-TlsCipherSuite -Name "TLS_DHE_RSA_WITH_AES_256_CBC_SHA"
+    Disable-TlsCipherSuite -Name "TLS_DHE_RSA_WITH_AES_128_CBC_SHA"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_AES_256_GCM_SHA384"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_AES_128_GCM_SHA256"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_AES_256_CBC_SHA256"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_AES_128_CBC_SHA256"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_AES_256_CBC_SHA"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_AES_128_CBC_SHA"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_3DES_EDE_CBC_SHA"
+    Disable-TlsCipherSuite -Name "TLS_DHE_DSS_WITH_AES_256_CBC_SHA256"
+    Disable-TlsCipherSuite -Name "TLS_DHE_DSS_WITH_AES_128_CBC_SHA256"
+    Disable-TlsCipherSuite -Name "TLS_DHE_DSS_WITH_AES_256_CBC_SHA"
+    Disable-TlsCipherSuite -Name "TLS_DHE_DSS_WITH_AES_128_CBC_SHA"
+    Disable-TlsCipherSuite -Name "TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_RC4_128_SHA"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_RC4_128_MD5"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_NULL_SHA256"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_NULL_SHA"
+    Disable-TlsCipherSuite -Name "TLS_PSK_WITH_AES_256_GCM_SHA384"
+    Disable-TlsCipherSuite -Name "TLS_PSK_WITH_AES_128_GCM_SHA256"
+    Disable-TlsCipherSuite -Name "TLS_PSK_WITH_AES_256_CBC_SHA384"
+    Disable-TlsCipherSuite -Name "TLS_PSK_WITH_AES_128_CBC_SHA256"
+    Disable-TlsCipherSuite -Name "TLS_PSK_WITH_NULL_SHA384"
+    Disable-TlsCipherSuite -Name "TLS_PSK_WITH_NULL_SHA256"
+    Disable-TlsCipherSuite -Name "TLS_RSA_WITH_3DES_EDE_CBC_SH"
+    #DisableCiphers
+}
+
+IISBuild
